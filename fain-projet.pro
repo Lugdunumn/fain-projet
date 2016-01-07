@@ -1,7 +1,6 @@
 TEMPLATE = app
 CONFIG += console c++11
 CONFIG -= app_bundle
-CONFIG -= qt
 
 SOURCES += \
     src/imgui_impl_glut.cpp \
@@ -26,7 +25,7 @@ HEADERS += \
     src/drawing.h
 
 win32 {
-LIBS += libfreeglut -lopengl32 -lglu32 -luser32 -lGL
+LIBS += -lmingw32 libfreeglut -lopengl32 -lglu32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid
 }
 
 unix {
