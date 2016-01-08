@@ -29,7 +29,4 @@ void Point::copy(const Point& p)
     this->yval = p.yval;
 }
 
-ostream& operator<<(ostream& os, Point& p)
-{
-    return os << "(" << p.xval << "," << p.yval + ")" << ends;
-}
+

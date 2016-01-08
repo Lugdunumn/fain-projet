@@ -280,7 +280,7 @@ void I_draw(Image *img)
 			   (yimg>=0)&&(yimg<img->_height))
 				c = img->_buffer[ximg][yimg];
 			else
-				c = C_new(0,0,0);
+                c = C_new(0.0,0.0,0.0);
 
 			glColor3f(c._red,c._green,c._blue);
 			glVertex2i(xwin,ywin);

@@ -13,7 +13,10 @@ public:
     void change(int x, int y);
     void copy(const Point& p);
 
-    friend ostream& operator<< (ostream& os, Point& p);
+    friend ostream& operator<<(ostream& os, Point& p)
+    {
+        return os << "(" << p.xval << "," << p.yval << ")";
+    }
 
     int xval, yval;
 

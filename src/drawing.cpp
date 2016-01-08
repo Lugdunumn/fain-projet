@@ -4,6 +4,7 @@ Drawing::Drawing()
 {
 }
 
+
 bool operator==(Color c1, Color c2)
 {
     if (c1._red == c2._red && c1._blue == c2._blue && c1._green == c2._green)
@@ -120,66 +121,44 @@ void Drawing::floodFillRec(Image *img, int x, int y, Color c, int w, int h)
 
 void Drawing::floodFillNonRec(Image *img, int x, int y, Color c, int w, int h)
 {
-//    if (c == img->_buffer[x][y] || x < 0 || x > w || y < 0 || y > h)
-//        return;
-//    vec2 v;
-//    v.x = x;
-//    v.y = y;
-//    std::stack<vec2> s;
-
-//    s.push(v);
-
-//    while (s.size() > 0)
-//    {
-//        vec2 p = s;
-//        int a = p.x;
-//        int b = p.y;
-//        if (b < 0 || b > h || a < 0 || a > w)
-//            continue;
-//        if (img->_buffer[a][b] == img->_buffer[x][y])
-//        {
-//            I_plotColor(img, a, b, c);
-//            s.push(new vec2(a+1, b));
-//            s.push(new vec2(a-1, b));
-//            s.push(new vec2(a, b+1));
-//            s.push(new vec2(a, b-1));
-//        }
-
-//    }
-    if (c == img->_buffer[x][y] || x < 0 || x > w || y < 0 || y > h)
+    if (x < 0 || x >= w || y < 0 || y >= h || c == img->_buffer[x][y])
         return;
-    Point p(x,y);
-    Point _p, pN, pS, pW, pE;
-    int a, b;
-    std::queue<Point> q;
-    q.push(p);
-    cout << p << endl;
+    vector<Point> stack;
 
-    while (!q.empty())
+    stack.push_back(Point(x,y));
+
+    int nx, ny;
+
+    while(!stack.empty())
     {
-        _p.copy(q.back());
-        cout << q.back() << endl;
-        cout << _p << endl;
-        a = _p.xval;
-        b = _p.yval;
-        q.pop();
-        if (b < 0 || b >= h || a < 0 || a >= w)
-            continue;
-        if (img->_buffer[a][b] != c)
-        {
-            I_plotColor(img, a, b, c);
+        Point t = stack.back();
+        cout << t.x << " " << t.y<< endl;
+        stack.pop_back();
 
-            pN.change(a, b+1);
-            q.push(pN);
+        I_plotColor(img, t.x, t.y, c);
 
-            pS.change(a, b-1);
-            q.push(pS);
+//        if (nx < 0 || nx >= w || ny < 0 || ny >= h || c == img->_buffer[nx][ny])
+//            continue;
 
-            pW.change(a+1, b);
-            q.push(pW);
+        nx = t.x - 1;
+        ny = t.y;
 
-            pE.change(a-1, b);
-            q.push(pE);
-        }
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+            stack.push_back(Point(nx, ny));
+        nx = t.x + 1;
+        ny = t.y;
+
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+            stack.push_back(Point(nx, ny));
+        nx = t.x;
+        ny = t.y - 1;
+
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+            stack.push_back(Point(nx, ny));
+        nx = t.x;
+        ny = t.y + 1;
+
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+            stack.push_back(Point(nx, ny));
     }
 }

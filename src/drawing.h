@@ -2,8 +2,20 @@
 #define DRAWING_H
 
 #include <iostream>
-#include <queue>
-#include "point.h"
+#include <vector>
+
+using namespace std;
+
+struct Point
+{
+    Point(int x_, int y_)
+    : x(x_)
+    , y(y_)
+    {}
+
+    int x;
+    int y;
+};
 
 extern "C" {
 #include "Image.h"
@@ -27,6 +39,7 @@ public:
     void floodFillRec(Image *img, int x, int y, Color c, int w, int h);
 
     void floodFillNonRec(Image *img, int x, int y, Color c, int w, int h);
+
 };
 
 #endif // DRAWING_H
