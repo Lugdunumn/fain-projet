@@ -21,7 +21,7 @@ extern "C" {
 
 #define IMAGE_PATH "resource/"
 
-#define ARRAYSIZE(_ARR)  ((int)(sizeof(_ARR)/sizeof(*_ARR)))
+#define INT_ARRAYSIZE(_ARR)  ((int)(sizeof(_ARR)/sizeof(*_ARR)))
 
 #include "include/imgui/imgui.h"
 #include "imgui_impl_glut.h"
@@ -41,6 +41,7 @@ bool line = false;
 bool circle = false;
 bool polygon = false;
 bool fillColor = false;
+int listbox_item_current = 0;
 
 bool firstRun = true;
 bool show_analysis_window = true;
@@ -125,6 +126,17 @@ void mouse_CB(int button, int state, int x, int y)
                 else if (fillColor == true)
                 {
 
+                    if (listbox_item_current == 0)
+                    {
+                        draw.floodFillRec(img, x, img->_height - y, c, w, h);
+                        cout << "Flood fill" << img->_current_color._red << endl;
+                    }
+                    else if (listbox_item_current == 1)
+                        ;
+                    else if (listbox_item_current == 2)
+                        draw.floodFillNonRec(img, x, img->_height - y, c, w, h);
+                    else if (listbox_item_current == 3)
+                        ;
                 }
             }
             else
@@ -251,7 +263,7 @@ void mouseMove_CB(int x, int y)
 
 //------------------------------------------------------------------------
 
-int main(int argc, char **argv)
+int main(int argc, char* argv[])
 {
 //    int largeur, hauteur;
 //    if(argc==2)
@@ -326,7 +338,7 @@ void DoGUI()
 
     ImVec4 clear_color = ImColor(red, green, blue);
     const char* listbox_items[] = { "Recursif seed-fill", "Scanline seed-fill", "Non recursif seed-fill", "seed-fill with texture" };
-    static int listbox_item_current = 0;
+
 
     ImGui::SetNextWindowPos(ImVec2(10, 10));
     ImGui::SetNextWindowSize(ImVec2(300,400));
@@ -339,7 +351,7 @@ void DoGUI()
         ImGui::InputInt("Radius", &draw.radius);
         circle = ImGui::Button("Circle");
         ImGui::ColorEdit3("Color", (float*)&clear_color);
-        ImGui::Combo("Method", &listbox_item_current, listbox_items, ARRAYSIZE(listbox_items), 4);
+        ImGui::Combo("Method", &listbox_item_current, listbox_items, INT_ARRAYSIZE(listbox_items), 4);
         fillColor = ImGui::Button("Color fill");
 
 

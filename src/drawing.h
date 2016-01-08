@@ -1,6 +1,10 @@
 #ifndef DRAWING_H
 #define DRAWING_H
 
+#include <iostream>
+#include <queue>
+#include "point.h"
+
 extern "C" {
 #include "Image.h"
 #include "Ppm.h"
@@ -19,6 +23,10 @@ public:
 
     int radius = 80;
     void circle(Image *img, int x0, int y0, int radius, Color c);
+
+    void floodFillRec(Image *img, int x, int y, Color c, int w, int h);
+
+    void floodFillNonRec(Image *img, int x, int y, Color c, int w, int h);
 };
 
 #endif // DRAWING_H
