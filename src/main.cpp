@@ -12,6 +12,7 @@
 
 \*===============================================================*/
 #include <iostream>
+#include <vector>
 #include <GL/glut.h>
 #include <GL/gl.h>
 extern "C" {
@@ -26,6 +27,8 @@ extern "C" {
 #include "include/imgui/imgui.h"
 #include "imgui_impl_glut.h"
 
+#include "vertex.h"
+#include "polygon.h"
 #include "drawing.h"
 
 using namespace std;
@@ -33,13 +36,15 @@ using namespace std;
 int w, h;
 
 float red = 0.5, green = 0.5, blue = 0.5;
+Color c = C_new(red, green, blue);
+Color oldColor = C_new(0.0, 0.0, 0.0);
 
 bool guiDrawing = true;
 bool drawingMode = false;
 
 bool line = false;
 bool circle = false;
-bool polygon = false;
+bool b_polygon = false;
 bool fillColor = false;
 int listbox_item_current = 0;
 int pattern_item_current = 0;
@@ -57,6 +62,9 @@ void Shutdown() {
 Image *img;
 
 Drawing draw;
+
+vector<Polygon> polygons;
+int poly_index = 0;
 
 //------------------------------------------------------------------
 //	C'est le display callback. A chaque fois qu'il faut
@@ -98,7 +106,12 @@ void mouse_CB(int button, int state, int x, int y)
                 io.MouseDown[0] = true;
                 I_focusPoint(img,x,img->_height-y);
 
-                Color c = C_new(red, green, blue);
+                c._red = red;
+                c._green = green;
+                c._blue = blue;
+
+                oldColor = img->_buffer[x][img->_height - y];
+
                 //I_plotColor(img, x,img->_height-y,c);
 
                 if (line == true)
@@ -121,22 +134,24 @@ void mouse_CB(int button, int state, int x, int y)
                 {
                     draw.circle(img, x, img->_height - y, draw.radius, c);
                 }
-                else if (polygon == true)
+                else if (b_polygon == true)
                 {
-
+                    Polygon p;
+                    p = polygons.at(poly_index);
+                    draw.createPolygon(img , x, img->_height - y, c, p);
                 }
                 else if (fillColor == true)
                 {
 
                     if (listbox_item_current == 0)
                     {
-                        draw.floodFillRec(img, x, img->_height - y, c, w, h);
+                        draw.floodFillRec(img, x, img->_height - y, c, oldColor, w, h);
                         cout << "4 way Flood fill Rec" << endl;
                     }
                     else if (listbox_item_current == 1)
-                        ;
+                        draw.floodFillScanline(img, x, img->_height - y, c, oldColor, w, h);
                     else if (listbox_item_current == 2)
-                        draw.floodFillNonRec(img, x, img->_height - y, c, w, h);
+                        draw.floodFillNonRec(img, x, img->_height - y, c,oldColor, w, h);
                     else if (listbox_item_current == 3)
                         ;
                 }
@@ -209,6 +224,11 @@ void keyboard_CB(unsigned char key, int x, int y)
     case 'z'    : I_zoom(img,2.0); break;
     case 'Z'    : I_zoom(img,0.5); break;
     case 'i'    : I_zoomInit(img); break;
+    case 'p'    :
+    {
+        draw.polygon_end = true;
+        break;
+    }
     case 8      : {
         io.KeysDown[key] = true; break; // Backspace down
     }
@@ -336,7 +356,7 @@ int main(int argc, char* argv[])
 
 void DoGUI()
 {
-    ImGui_ImplGLUT_NewFrame(w, h, 1.0f / 60.0f);
+    ImGui_ImplGLUT_NewFrame(w, h, 1.0f / 30.0f);
 
     ImVec4 fill_color = ImColor(red, green, blue);
     const char* listbox_items[] = { "Recursif seed-fill", "Scanline seed-fill", "Non recursif seed-fill", "seed-fill with texture" };
@@ -361,7 +381,7 @@ void DoGUI()
         fillColor = ImGui::Button("Color fill");
 
 
-        polygon = ImGui::Button("Polygon");
+        b_polygon = ImGui::Button("Polygon");
 
         ImGui::End();
 

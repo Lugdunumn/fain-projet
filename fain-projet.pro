@@ -11,7 +11,8 @@ SOURCES += \
     src/Ppm.c \
     src/main.cpp \
     src/drawing.cpp \
-    src/point.cpp
+    src/polygon.cpp \
+    src/vertex.cpp
 
 HEADERS += \
     src/Image.h \
@@ -23,8 +24,9 @@ HEADERS += \
     include/imgui/stb_rect_pack.h \
     include/imgui/stb_textedit.h \
     include/imgui/stb_truetype.h \
-    src/drawing.h \
-    src/point.h
+    src/polygon.h \
+    src/vertex.h  \
+    src/drawing.h
 
 win32 {
 LIBS += -lmingw32 libfreeglut -lopengl32 -lglu32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid

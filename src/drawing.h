@@ -1,8 +1,16 @@
 #ifndef DRAWING_H
 #define DRAWING_H
 
+extern "C" {
+#include "Image.h"
+#include "Ppm.h"
+}
+
 #include <iostream>
 #include <vector>
+
+#include "polygon.h"
+
 
 using namespace std;
 
@@ -16,11 +24,6 @@ struct Point
     int x;
     int y;
 };
-
-extern "C" {
-#include "Image.h"
-#include "Ppm.h"
-}
 
 class Drawing
 {
@@ -36,9 +39,17 @@ public:
     int radius = 80;
     void circle(Image *img, int x0, int y0, int radius, Color c);
 
-    void floodFillRec(Image *img, int x, int y, Color c, int w, int h);
+    void floodFillRec(Image *img, int x, int y, Color c, Color old, int w, int h);
 
-    void floodFillNonRec(Image *img, int x, int y, Color c, int w, int h);
+    void floodFillNonRec(Image *img, int x, int y, Color c, Color old, int w, int h);
+
+    void lineScanline(Image *img, int x1, int x2, int y, Color c, Color old, int w, int h);
+
+    void floodFillScanline(Image *img, int x, int y, Color c, Color old, int w, int h);
+
+    bool polygon_end = false;
+
+    void createPolygon(Image *img, int x, int y, Color c, class Polygon polygon);
 
 };
 

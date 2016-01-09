@@ -107,21 +107,21 @@ void Drawing::circle(Image *img, int x0, int y0, int radius, Color c)
     }
 }
 
-void Drawing::floodFillRec(Image *img, int x, int y, Color c, int w, int h)
+void Drawing::floodFillRec(Image *img, int x, int y, Color c, Color old, int w, int h)
 {
-    if (x >= 0 && x < w && y >= 0 && y < h &&  c!= img->_buffer[x][y])
+    if (x >= 0 && x <= w && y >= 0 && y <= h && img->_buffer[x][y] == old &&  img->_buffer[x][y] != c)
     {
         I_plotColor(img, x, y, c);
-        floodFillRec(img, x - 1, y, c, w, h);
-        floodFillRec(img, x + 1, y, c, w, h);
-        floodFillRec(img, x, y - 1, c, w, h);
-        floodFillRec(img, x, y + 1, c, w, h);
+        floodFillRec(img, x - 1, y, c, old, w, h);
+        floodFillRec(img, x + 1, y, c, old, w, h);
+        floodFillRec(img, x, y - 1, c, old, w, h);
+        floodFillRec(img, x, y + 1, c, old, w, h);
     }
 }
 
-void Drawing::floodFillNonRec(Image *img, int x, int y, Color c, int w, int h)
+void Drawing::floodFillNonRec(Image *img, int x, int y, Color c, Color old, int w, int h)
 {
-    if (x < 0 || x >= w || y < 0 || y >= h || c == img->_buffer[x][y])
+    if (x < 0 || x > w || y < 0 || y > h || c == old)
         return;
     vector<Point> stack;
 
@@ -132,7 +132,7 @@ void Drawing::floodFillNonRec(Image *img, int x, int y, Color c, int w, int h)
     while(!stack.empty())
     {
         Point t = stack.back();
-        cout << t.x << " " << t.y<< endl;
+
         stack.pop_back();
 
         I_plotColor(img, t.x, t.y, c);
@@ -143,22 +143,155 @@ void Drawing::floodFillNonRec(Image *img, int x, int y, Color c, int w, int h)
         nx = t.x - 1;
         ny = t.y;
 
-        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h && img->_buffer[nx][ny] == old && c!= img->_buffer[nx][ny])
             stack.push_back(Point(nx, ny));
         nx = t.x + 1;
         ny = t.y;
 
-        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h && img->_buffer[nx][ny] == old && c!= img->_buffer[nx][ny])
             stack.push_back(Point(nx, ny));
         nx = t.x;
         ny = t.y - 1;
 
-        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h && img->_buffer[nx][ny] == old && c!= img->_buffer[nx][ny])
             stack.push_back(Point(nx, ny));
         nx = t.x;
         ny = t.y + 1;
 
-        if(nx >= 0 && nx < w && ny >= 0 && ny < h &&  c!= img->_buffer[nx][ny])
+        if(nx >= 0 && nx < w && ny >= 0 && ny < h && img->_buffer[nx][ny] == old && c!= img->_buffer[nx][ny])
             stack.push_back(Point(nx, ny));
+    }
+}
+
+void Drawing::lineScanline(Image *img, int x1, int x2, int y, Color c, Color old, int w, int h)
+{
+    int xL,xR;
+    if( y < 0 || y > h )
+        return;
+    for( xL = x1; xL >= 0; --xL )
+    { // scan left
+        if( img->_buffer[xL][y] != old )
+            break;
+        I_plotColor(img, xL, y, c);
+    }
+    if( xL < x1 ) {
+        lineScanline(img, xL, x1, y-1, c, old, w, h); // fill child
+        lineScanline(img, xL, x1, y+1, c, old, w, h); // fill child
+        ++x1;
+    }
+    for( xR = x2;  xR <= w; ++xR ) { // scan right
+        if( img->_buffer[xR][y] !=  old )
+            break;
+        I_plotColor(img, xR, y, c);
+    }
+    if( xR > x2 ) {
+        lineScanline(img, x2, xR, y-1, c, old, w, h); // fill child
+        lineScanline(img, x2, xR, y+1, c, old, w, h); // fill child
+        --x2;
+    }
+    for( xR = x1; xR <= x2 && xR <= w; ++xR ) {  // scan betweens
+        if( img->_buffer[xR][y] == old )
+            I_plotColor(img, xR, y, c);
+        else
+        {
+            if( x1 < xR ) {
+                // fill child
+                lineScanline(img, x1, xR-1, y-1, c, old, w, h);
+                // fill child
+                lineScanline(img, x1, xR-1, y+1, c, old, w, h);
+                x1 = xR;
+            }
+            // Note: This function still works if this step is removed.
+            for( ; xR <= x2 && xR <= w; ++xR) { // skip over border
+                if( img->_buffer[xR][y] == old ) {
+                    x1 = xR--;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void Drawing::floodFillScanline(Image *img, int x, int y, Color c, Color old, int w, int h)
+{
+    if (x < 0 || x > w || y < 0 || y > h || c == old)
+        return;
+    lineScanline(img, x, x, y, c, old, w, h);
+
+//    vector<Point> stack;
+
+//    int x1, y1;
+//    bool spanLeft, spanRight;
+
+//    stack.push_back(Point(x,y));
+
+//    while(!stack.empty())
+//    {
+//        stack.pop_back();
+
+//        y1 = y;
+//        while(y1 >= 0 && img->_buffer[x][y1] == old)
+//            y1 --;
+//        y1++;
+//        spanLeft = false;
+//        spanRight = false;
+
+//        while(y1 < h && img->_buffer[x][y1] == old)
+//        {
+//            img->_buffer[x][y1] = c;
+//            if (!spanLeft && x > 0 && img->_buffer[x - 1][y1] == old)
+//            {
+//                if (img->_buffer[x - 1][y1] != c)
+//                {
+//                    stack.push_back(Point(x - 1, y1));
+//                    spanLeft = true;
+//                    x--;
+//                }
+//                else
+//                    return;
+//            }
+//            else if(spanLeft && x > 0 && img->_buffer[x - 1][y1] != old)
+//            {
+//                spanLeft = false;
+//            }
+//            if (!spanRight && x < w && img->_buffer[x + 1][y1] == old)
+//            {
+//                if (img->_buffer[x+1][y1] != c)
+//                {
+//                    stack.push_back(Point(x + 1, y1));
+//                    spanRight = true;
+//                    x++;
+//                }
+//                else
+//                    return;
+//            }
+//            else if(spanRight && x > 0 && img->_buffer[x + 1][y1] != old)
+//            {
+//                spanRight = false;
+//            }
+//            y1++;
+//        }
+//    }
+}
+
+void Drawing::createPolygon(Image *img, int x, int y, Color c, Polygon polygon)
+{
+    if(polygon_end != true)
+    {
+        Vertex v(x,y);
+        polygon.vertices.push_back(v);
+        if (polygon.vertices.size() != 1)
+        {
+            Vertex v1, v2;
+            int i = polygon.vertices.size();
+            v1 = polygon.vertices.at(i - 1);
+            v2 = polygon.vertices.back();
+            bresenham(img, v1.x, v1.y, v2.x, v2.y, c);
+        }
+    }
+    else
+    {
+        polygon_end = false;
+        polygon.count++;
     }
 }
