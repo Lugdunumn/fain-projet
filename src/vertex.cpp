@@ -13,8 +13,9 @@ Vertex::Vertex()
 }
 
 Vertex::Vertex(const Vertex& p)
+    : x (p.x)
+    , y (p.y)
 {
-    Vertex r(p.x, p.y);
 }
 
 void Vertex::change(int x, int y)

@@ -15,6 +15,9 @@
 #include <vector>
 #include <GL/glut.h>
 #include <GL/gl.h>
+
+#include <dirent.h>
+
 extern "C" {
 #include "Image.h"
 #include "Ppm.h"
@@ -49,6 +52,7 @@ bool fillColor = false;
 int listbox_item_current = 0;
 int pattern_item_current = 0;
 
+
 bool firstRun = true;
 bool show_analysis_window = true;
 
@@ -59,12 +63,32 @@ void Shutdown() {
     ImGui_ImplGLUT_Shutdown();
 }
 
+void computeCentroid(Polygon &p);
+
+void Binarization();
+
+void Grayscale();
+
+void Erosion();
+
 Image *img;
+
+Image *pattern;
 
 Drawing draw;
 
 vector<Polygon> polygons;
-int poly_index = 0;
+Polygon p;
+int poly_index = -1;
+bool polygon_end = false;
+
+DIR *dpdf;
+struct dirent *epdf;
+
+string files;
+int file_item_current = 0;
+
+int threshold = 180;
 
 //------------------------------------------------------------------
 //	C'est le display callback. A chaque fois qu'il faut
@@ -136,9 +160,21 @@ void mouse_CB(int button, int state, int x, int y)
                 }
                 else if (b_polygon == true)
                 {
-                    Polygon p;
-                    p = polygons.at(poly_index);
-                    draw.createPolygon(img , x, img->_height - y, c, p);
+                    if(polygon_end != true)
+                    {
+                        Vertex v(x, img->_height - y);
+                        p.vertices.push_back(v);
+
+                        if (p.vertices.size() != 1)
+                        {
+                            Vertex v1, v2;
+                            int i = p.vertices.size();
+
+                            v1 = p.vertices.at(i - 2);
+                            v2 = p.vertices.at(i - 1);
+                            draw.bresenham(img, v1.x, v1.y, v2.x, v2.y, c);
+                        }
+                    }
                 }
                 else if (fillColor == true)
                 {
@@ -153,7 +189,7 @@ void mouse_CB(int button, int state, int x, int y)
                     else if (listbox_item_current == 2)
                         draw.floodFillNonRec(img, x, img->_height - y, c,oldColor, w, h);
                     else if (listbox_item_current == 3)
-                        ;
+                        draw.floodFillPatternRec(img, pattern, x, img->_height - y, oldColor, w, h, x, img->_height - y);
                 }
             }
             else
@@ -221,14 +257,95 @@ void keyboard_CB(unsigned char key, int x, int y)
         exit(1);
     }
         break;
-    case 'z'    : I_zoom(img,2.0); break;
-    case 'Z'    : I_zoom(img,0.5); break;
-    case 'i'    : I_zoomInit(img); break;
-    case 'p'    :
+    case 'z'    :
     {
-        draw.polygon_end = true;
+        if (drawingMode)
+        I_zoom(img,2.0);
+        else
+            io.AddInputCharacter(key);
         break;
     }
+    case 'Z'    : I_zoom(img,0.5); break;
+    case 'i'    :
+    {
+        if (drawingMode)
+            I_zoomInit(img);
+        else
+            io.AddInputCharacter(key);
+        break;
+    }
+    case 'p'    :
+    {
+        if (drawingMode)
+        {
+            int i = p.vertices.size();
+            Vertex v1, v2;
+            v1 = p.vertices.at(i - 1);
+            v2 = p.vertices.at(0);
+            draw.bresenham(img, v1.x, v1.y, v2.x, v2.y, c);
+
+            // compute orientation
+            int edgeSum = 0;
+            for (size_t j = 0; j < p.vertices.size(); j++)
+            {
+                // (x2 - x1)(y2 + y1)
+                if (j != p.vertices.size() - 1)
+                    edgeSum += (p.vertices.at(j+1).x - p.vertices.at(j).x) * (p.vertices.at(j+1).y + p.vertices.at(j).y);
+                else
+                    edgeSum += (p.vertices.at(0).x - p.vertices.at(j).x) * (p.vertices.at(0).y + p.vertices.at(j).y);
+            }
+
+            if (edgeSum > 0)
+                p.o = clockWise;
+            else
+                p.o = antiClockWise;
+            p.getOrientation();
+
+            computeCentroid(p);
+            Color r;
+            r._red = 1.0; r._green = 0.0; r._blue = 0.0;
+            I_plotColor(img, p.centroid.x, img->_height - p.centroid.y, r);
+            cout << "Polygon's centroid(screen coordiante):" << p.centroid << endl;
+
+            if(p.isConvex(h))
+                p.c = convex;
+            else
+                p.c = concave;
+
+            cout << "Convexity(1:convex, 0:concave): " << p.c << endl;
+
+            p.count++;
+            polygons.push_back(p);
+
+            poly_index ++;
+            while (p.vertices.size() != 0)
+                p.vertices.pop_back();
+        }
+        else
+            io.AddInputCharacter(key);
+        break;
+    }
+    case 'b'    :
+    {
+        if (drawingMode)
+            Binarization();
+        else
+            io.AddInputCharacter(key);
+        break;
+    }
+    case 'e'    :
+    {
+        if (drawingMode)
+            Erosion();
+        else
+            io.AddInputCharacter(key);
+        break;
+    }
+    case 'g'    :
+        if (drawingMode)
+            Grayscale();
+        else
+            io.AddInputCharacter(key);
     case 8      : {
         io.KeysDown[key] = true; break; // Backspace down
     }
@@ -304,10 +421,21 @@ int main(int argc, char* argv[])
 //        I_checker(img,rouge,blanc,50);
 //    }
     // image path as string then convert to char * need free it at the end.
-    string imageName = "";
+    string imageName = "image2.jpg";
     string imagePath = IMAGE_PATH + imageName;
     char * imagePathC = new char[imagePath.length() + 1];
     strcpy(imagePathC, imagePath.c_str());
+
+
+    dpdf = opendir(IMAGE_PATH);
+    if (dpdf != NULL){
+       while (epdf = readdir(dpdf)){
+          files = files + epdf->d_name + ", ";
+       }
+    }
+    cout << files << endl;
+
+    pattern = I_read("resource/image2.jpg");
 
     if (imageName == "")
     {
@@ -321,6 +449,8 @@ int main(int argc, char* argv[])
         w = img->_width;
         h = img->_height;
     }
+
+
 
     int windowPosX = 600, windowPosY = 300;
 
@@ -354,13 +484,156 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+void computeCentroid(Polygon& p)
+{
+    int x0 =0, y0= 0;
+    for (size_t i=0; i < p.vertices.size(); ++i)
+    {
+        x0 += p.vertices.at(i).x;
+        y0 += img->_height - p.vertices.at(i).y;
+    }
+
+    p.centroid.change(x0/p.vertices.size(), y0/p.vertices.size());
+}
+
+void Grayscale()
+{
+    Color gray;
+    for (int i = 0; i < img->_width; i++)
+    {
+        for (int j = 0; j < img->_height; j++)
+        {
+            gray._red = 0.299 * (img->_buffer[i][j]._red) + 0.587 * (img->_buffer[i][j]._green) + 0.114* (img->_buffer[i][j]._blue);
+            gray._green = 0.299 * (img->_buffer[i][j]._red) + 0.587 * (img->_buffer[i][j]._green) + 0.114* (img->_buffer[i][j]._blue);
+            gray._blue = 0.299 * (img->_buffer[i][j]._red) + 0.587 * (img->_buffer[i][j]._green) + 0.114* (img->_buffer[i][j]._blue);
+            I_plotColor(img, i, j, gray);
+        }
+    }
+}
+
+void Binarization()
+{
+    float gray;
+    int g;
+    Color b,w;
+    b._red = b._green = b._blue = 0.0;
+    w._red = w._green = w._blue = 1.0;
+    for (int i = 0; i < img->_width; i++)
+    {
+        for (int j = 0; j < img->_height; j++)
+        {
+            gray = 0.299 * (img->_buffer[i][j]._red) + 0.587 * (img->_buffer[i][j]._green) + 0.114* (img->_buffer[i][j]._blue);
+            g = gray * 255;
+            //cout << gray << endl;
+            if (g > threshold)
+                I_plotColor(img, i, j, w);
+            else
+                I_plotColor(img, i, j, b);
+        }
+    }
+}
+
+void Dilation()
+{
+    short mask[3][3] = {{0, 1, 0},
+                        {1, 1, 1},
+                        {0, 1, 0}};
+    float max;
+    for(int i=1; i< img->_width -1; i++)
+    {
+       //if( (i%10) == 0) printf("%3d", i);
+       for(int j=1; j< img->_height-1; j++)
+       {
+          max = 0;
+          for(int a=-1; a<=1; a++)
+          {
+              for(int b=-1; b<=1; b++){
+                 if(mask[a+1][b+1] == 1){
+                    if(img->_buffer[i+a][j+b]._red > max)
+                       max = img->_buffer[i+a][j+b]._red;
+                 }  /* ends if mask == 1 */
+              }  /*  ends loop over b */
+          }  /* ends loop over a */
+          img->_buffer[j][i] = C_new(max, max, max);
+       }  /* ends loop over j */
+    }  /* ends loop over i */
+}
+
+void Erosion()
+{
+    short mask[3][3] = {{0, 1, 0},
+                        {1, 1, 1},
+                        {0, 1, 0}};
+    float min;
+
+//    Image * out_image;
+//    out_image = I_read("resource/image2.jpg");
+
+    for(int i=1; i< img->_width - 1; i++)
+    {
+       //if( (i%10) == 0) printf("%3d", i);
+       for(int j=1; j< img->_height - 1; j++){
+          min = 1.0;
+          for(int a=-1; a<=1; a++){
+              for(int b=-1; b<=1; b++){
+                 if(mask[a+1][b+1] == 1){
+                    if(img->_buffer[i+a][j+b]._red < min)
+                       min = img->_buffer[i+a][j+b]._red;
+                 }  /* ends if mask == 1 */
+              }  /*  ends loop over b */
+          }  /* ends loop over a */
+          img->_buffer[j][i] = C_new(min, min, min);
+       }  /* ends loop over j */
+    }  /* ends loop over i */
+}
+
+void LabelComponent(int* output, int labelNo, unsigned short x, unsigned short y)
+{
+  int index = x + w*y;
+  if (img->_buffer[x][y]._red == 0) return;   /* This pixel is not part of a component */
+  if (output[index] != 0) return;   /* This pixel has already been labelled  */
+  output[index] = labelNo;
+
+
+  /* Now label the 4 neighbours: */
+  if (x > 0)        LabelComponent(output, labelNo, x-1, y);   /* left  pixel */
+  if (x < -1)  LabelComponent(output, labelNo, x+1, y);   /* right pixel */
+  if (y > 0)        LabelComponent(output, labelNo, x, y-1);   /* upper pixel */
+  if (y < -1) LabelComponent(output, labelNo, x, y+1);   /* lower pixel */
+}
+
+void LabelImage()
+{
+  int labelNo = 0;
+  int index   = -1;
+  int* output = (int*)malloc(w*h*sizeof(int));
+  memset(output, 0, w*h*sizeof(int));
+  for (unsigned short y = 0; y < img->_height; y++)
+  {
+    for (unsigned short x = 0; x < img->_width; x++)
+    {
+      index++;
+      if (img->_buffer[x][y]._red == 0) continue;   /* This pixel is not part of a component */
+      if (output[index] != 0) continue;   /* This pixel has already been labelled  */
+      /* New component found */
+      img->_buffer[x][y] = C_new(0.1 + labelNo * 0.2, 0.1 + labelNo * 0.2, 0.1 + labelNo * 0.2);
+      labelNo++;
+      LabelComponent(output, labelNo, x, y);
+    }
+  }
+}
+
+
+
 void DoGUI()
 {
     ImGui_ImplGLUT_NewFrame(w, h, 1.0f / 30.0f);
 
     ImVec4 fill_color = ImColor(red, green, blue);
     const char* listbox_items[] = { "Recursif seed-fill", "Scanline seed-fill", "Non recursif seed-fill", "seed-fill with texture" };
-    const char* pattern_items[] = {"1", "2", "3", "4"};
+
+    static char buf[64] = "";
+
 
     ImGui::SetNextWindowPos(ImVec2(10, 10));
     ImGui::SetNextWindowSize(ImVec2(300,400));
@@ -376,20 +649,119 @@ void DoGUI()
         ImGui::SliderFloat("Green", &green, 0.0, 1.0);
         ImGui::SliderFloat("Blue", &blue, 0.0, 1.0);
         ImGui::ColorEdit3("Color", (float*)&fill_color);
-        ImGui::Combo("Method", &listbox_item_current, listbox_items, INT_ARRAYSIZE(listbox_items), 4);
-        ImGui::Combo("Pattern", &pattern_item_current, pattern_items, INT_ARRAYSIZE(listbox_items), 4);
+        ImGui::Combo("Method", &listbox_item_current, listbox_items, INT_ARRAYSIZE(listbox_items));
+
         fillColor = ImGui::Button("Color fill");
 
-
         b_polygon = ImGui::Button("Polygon");
+
+
+        if (ImGui::Button("Rotate"))
+        {
+            if (polygons.empty() != true && polygons.size() - 1 <= poly_index)
+            {
+                Color b = C_new(0, 0, 0);
+                draw.drawPoly(img, polygons.at(poly_index), b);
+                polygons.at(poly_index).quarter(h);
+                draw.drawPoly(img, polygons.at(poly_index), c);
+            }
+        }
+        if (ImGui::Button("Increase size"))
+        {
+            if (polygons.empty() != true && polygons.size() - 1 <= poly_index)
+            {
+                Color b = C_new(0, 0, 0);
+                draw.drawPoly(img, polygons.at(poly_index), b);
+                polygons.at(poly_index).increase(h);
+                draw.drawPoly(img, polygons.at(poly_index), c);
+            }
+        }
+        if (ImGui::Button("Decrease size"))
+        {
+            if (polygons.empty() != true && polygons.size() - 1 <= poly_index)
+            {
+                Color b = C_new(0, 0, 0);
+                draw.drawPoly(img, polygons.at(poly_index), b);
+                polygons.at(poly_index).reduce(h);
+                draw.drawPoly(img, polygons.at(poly_index), c);
+            }
+        }
+        ImGui::SliderInt("Polygon", &poly_index, -1, 9);
 
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(320, 10));
         ImGui::SetNextWindowSize(ImVec2(300,400));
         ImGui::Begin("Analysis", &show_analysis_window);
+        ImGui::InputText("File name", buf, 64);
+        if (ImGui::Button("Open"))
+        {
+                string s(buf);
+                if (s != "")
+                {
+                s = IMAGE_PATH + s;
+                char * sPtr = new char[s.length() + 1];
+                strcpy(sPtr, s.c_str());
+                img= I_read(sPtr);
+                w = img->_width;
+                h = img->_height;
+                free(sPtr);
+
+                glViewport(0, 0, w, h);
+
+                glMatrixMode(GL_PROJECTION);
+                glLoadIdentity();
+                glMatrixMode(GL_MODELVIEW);
+                glLoadIdentity();
+
+                glOrtho(0,w,0,h,-1,1);
+
+                glutReshapeWindow(w, h);
+                }
+                else
+                {
+                    w = 800;
+                    h = 600;
+                    img = I_new(w, h);
+
+                    glViewport(0, 0, w, h);
+
+                    glMatrixMode(GL_PROJECTION);
+                    glLoadIdentity();
+                    glMatrixMode(GL_MODELVIEW);
+                    glLoadIdentity();
+
+                    glOrtho(0,w,0,h,-1,1);
+
+                    glutReshapeWindow(w, h);
+                }
+        }
+        if (ImGui::Button("Grayscale"))
+        {
+            Grayscale();
+        }
+        ImGui::SliderInt("Threshold", &threshold, 0, 255);
+        if (ImGui::Button("Binarization"))
+        {
+            Binarization();
+        }
+        if (ImGui::Button("Erosion"))
+        {
+            cout << "erosion" << endl;
+            Erosion();
+        }
+        if (ImGui::Button("Dilation"))
+        {
+            Dilation();
+        }
+        if (ImGui::Button("Label"))
+        {
+            LabelImage();
+        }
+
         ImGui::End();
 
         ImGui::Render();
     }
 }
+

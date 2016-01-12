@@ -47,9 +47,10 @@ public:
 
     void floodFillScanline(Image *img, int x, int y, Color c, Color old, int w, int h);
 
-    bool polygon_end = false;
+    void floodFillPatternRec(Image* img, Image *pattern, int x, int y, Color old, int w, int h, int ox, int oy);
 
-    void createPolygon(Image *img, int x, int y, Color c, class Polygon polygon);
+    void drawPoly(Image *img, Polygon p, Color c);
+
 
 };
 

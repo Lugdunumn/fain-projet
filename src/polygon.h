@@ -3,12 +3,13 @@
 
 #include <iostream>
 #include <vector>
+#include "math.h"
 
 #include "vertex.h"
 
 enum Orientation{ clockWise, antiClockWise};
 
-enum Convexity{ convex, concave };
+enum Convexity{ concave, convex };
 
 class Polygon
 {
@@ -27,11 +28,15 @@ public:
 
     Convexity c;
 
-    void reduce();
+    void reduce(int h);
 
-    void increase();
+    void increase(int h);
 
-    void quarter();
+    void quarter(int h);
+
+    void getOrientation();
+
+    bool isConvex(int h);
 };
 
 #endif // POLYGON_H
